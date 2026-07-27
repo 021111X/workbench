@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>我的工作台</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#457635">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<link rel="apple-touch-icon" href="icon.svg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="工作台">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;font-family:"Microsoft YaHei",system-ui,sans-serif}
+  body{background:var(--bg);color:var(--text);min-height:100vh;
+       background-image:var(--bgImg);background-attachment:fixed}
+  .layout{display:flex;min-height:100vh}
+
+  /* 侧边栏（参考图样式：绿色实色 + 白字 + 圆角菜单卡） */
+  .sidebar{width:220px;flex-shrink:0;background:var(--headerBg);
+    color:var(--sbText);padding:24px 14px;position:sticky;top:0;height:100vh;overflow-y:auto}
+  .sb-profile{display:flex;align-items:center;gap:10px;padding:6px 8px 18px;border-bottom:1px solid var(--sbLine);margin-bottom:14px}
+  .sb-avatar{width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.3);display:flex;align-items:center;justify-content:center;font-size:18px}
+  .sb-name{font-size:15px;font-weight:bold}.sb-role{font-size:11px;opacity:.7}
+  .sb-item{display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:10px;cursor:pointer;font-size:14px;color:var(--sbTextSoft);margin-bottom:4px;transition:.15s}
+  .sb-item:hover{background:rgba(255,255,255,.25);color:var(--sbText)}
+  .sb-item.on{background:linear-gradient(120deg,#ffffff 0%,rgba(255,255,255,.88) 100%);color:var(--accent);font-weight:bold;box-shadow:0 2px 10px rgba(0,0,0,.15)}
+  .sb-item.on .ico{color:var(--accent)}
+  .ico{width:20px;text-align:center;font-size:16px;display:inline-block}
+  .sb-theme{margin-top:18px;padding-top:14px;border-top:1px solid var(--sbLine)}
+  .sb-theme .lbl{font-size:11px;opacity:.7;margin:0 8px 8px;display:block}
+  .theme-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+  .theme-btn{aspect-ratio:1;border-radius:8px;cursor:pointer;border:2px solid transparent;font-size:13px;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:bold}
+  .theme-btn.on{border-color:#fff}
+
+  /* 主体 */
+  .main{flex:1;min-width:0;padding:24px 28px 60px;overflow-x:hidden}
+  .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:8px}
+  .topbar h1{font-size:22px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .topbar .right{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:13px}
+  .badge-season{background:var(--grad);color:var(--gradText);padding:3px 12px;border-radius:99px;font-size:12px;font-weight:bold;box-shadow:0 2px 6px rgba(0,0,0,.12)}
+  .menu-toggle{display:none;background:none;border:none;font-size:22px;cursor:pointer;color:var(--text)}
+
+  .tab{display:none}.tab.on{display:block;animation:fade .25s}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px;box-shadow:var(--panelShadow)}
+  .panel h2{font-size:15px;margin-bottom:12px;display:flex;align-items:center;gap:8px;color:var(--text)}
+  .panel h2 .sub{font-size:12px;color:var(--muted);font-weight:normal}
+  .row{display:flex;gap:8px;flex-wrap:wrap}
+  input,select,textarea{background:var(--card);border:1px solid var(--line);color:var(--text);padding:9px 12px;border-radius:8px;font-size:14px;outline:none;font-family:inherit}
+  input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+  textarea{resize:vertical;min-height:80px;width:100%}
+  .btn{background:var(--grad);border:none;color:var(--gradText);padding:9px 18px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:bold;box-shadow:0 2px 6px rgba(0,0,0,.12)}
+  .btn:hover{filter:brightness(1.08)}
+  .btn.ghost{background:var(--card);border:1px solid var(--line);color:var(--muted);font-weight:normal}
+  .empty{color:var(--muted);font-size:13px;padding:16px;text-align:center}
+  /* tasks */
+  .task{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:11px 14px;margin-bottom:8px}
+  .task input[type=checkbox]{width:17px;height:17px;accent-color:var(--accent);cursor:pointer}
+  .task.done .t-name{text-decoration:line-through;color:var(--muted)}
+  .t-name{flex:1;font-size:14px}
+  .del{background:none;border:none;color:#b0bab4;cursor:pointer;font-size:15px}.del:hover{color:#e05252}
+  .cal{background:none;border:none;cursor:pointer;font-size:15px;margin-left:2px;filter:grayscale(.2)}.cal:hover{transform:scale(1.15)}
+  .progress{height:8px;background:var(--card);border-radius:99px;overflow:hidden;margin:6px 0 14px}
+  .progress i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:99px;transition:.3s}
+  .chip{display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:99px;padding:4px 12px;font-size:12px;color:var(--muted);margin:0 6px 6px 0}
+  .chip b{color:var(--text)}
+  .chip .x{cursor:pointer;color:#b0bab4}
+  /* hotspots */
+  .summary{background:var(--gradSoft);border:1px solid var(--line);border-radius:12px;padding:14px 16px;font-size:13.5px;line-height:1.8;color:var(--text);margin-bottom:14px;position:relative;overflow:hidden}
+  .summary::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--grad)}
+  .hcard{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:10px;position:relative;overflow:hidden}
+  .hcard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--grad)}
+  .hcard .top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+  .hcard .rank{color:var(--muted);font-size:13px;min-width:22px;font-weight:bold}
+  .hcard .word{font-size:15px;font-weight:bold;flex:1;color:var(--text)}
+  .hcard a.word{text-decoration:none;cursor:pointer;display:flex;align-items:center;gap:4px}
+  .jump{font-size:11px;opacity:.5;font-weight:normal}
+  .hcard a.word:hover .jump{opacity:1}
+  .hot{color:var(--accent3);font-size:12px;font-weight:bold}
+  .badge{font-size:12px;padding:3px 10px;border-radius:99px;font-weight:bold}
+  .b-ok{background:#e3f5ec;color:#16a34a;border:1px solid #b7e2cd}
+  .b-warn{background:#fdf3e3;color:#d97706;border:1px solid #f0ddb8}
+  .b-no{background:#fdeaea;color:#dc2626;border:1px solid #f2c5c5}
+  .b-cat{background:var(--card);color:var(--accent2);border:1px solid var(--line)}
+  .hline{font-size:13px;color:var(--text);line-height:1.7;margin-top:4px;opacity:.85}
+  .hline b{color:var(--accent);font-weight:bold}
+  .hline.idea b{color:var(--accent2)}
+  /* workflow */
+  .fcard{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:12px;position:relative;overflow:hidden}
+  .fcard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--grad)}
+  .fcard .top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .fcard .word{font-size:15px;font-weight:bold;flex:1;color:var(--text)}
+  .fsteps{margin:10px 0 8px 22px;font-size:13.5px;line-height:2;color:var(--text)}
+  .fsteps li::marker{color:var(--accent);font-weight:bold}
+  /* money */
+  .stat3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+  .stat{background:var(--gradSoft);border:1px solid var(--line);border-radius:12px;padding:14px;text-align:center}
+  .stat .v{font-size:22px;font-weight:bold;color:#e05252}
+  .stat .l{font-size:12px;color:var(--muted);margin-top:4px}
+  .bill{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:8px;font-size:13.5px;flex-wrap:wrap}
+  .bill .cat{background:var(--card);color:var(--accent2);border:1px solid var(--line);border-radius:6px;padding:2px 8px;font-size:12px}
+  .bill .pay{color:var(--muted);font-size:12px}
+  .bill .amt{margin-left:auto;font-weight:bold;color:#e05252}
+  .bill .note{color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .bar-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:13px}
+  .bar-row .bl{width:60px;color:var(--muted)}
+  .bar-row .bar{flex:1;height:10px;background:var(--card);border-radius:99px;overflow:hidden}
+  .bar-row .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:99px}
+  .bar-row .bv{width:80px;text-align:right;color:var(--text)}
+  .day-group{margin-bottom:14px}
+  .day-group .dh{font-size:13px;color:var(--muted);margin-bottom:6px;display:flex;justify-content:space-between}
+  /* plants */
+  .pcard{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:12px;position:relative;overflow:hidden}
+  .pcard::before{content:"";position:absolute;left:0;top:0;right:0;height:4px;background:var(--grad)}
+  .pcard .ph{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+  .pcard .pname{font-size:16px;font-weight:bold}
+  .pcard .pdays{color:var(--accent2);font-size:13px;font-weight:bold}
+  .pcard .pstage{background:var(--card);color:var(--accent);border:1px solid var(--line);border-radius:99px;padding:3px 12px;font-size:12px;font-weight:bold}
+  .ptips{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.8;color:var(--text)}
+  .ptips b{color:var(--accent)}
+  .pnext{font-size:12px;color:var(--muted);margin-top:8px}
+  .stagebar{display:flex;gap:4px;margin:10px 0}
+  .stagebar span{flex:1;height:6px;border-radius:99px;background:var(--line)}
+  .stagebar span.past{background:var(--accent)}
+  .stagebar span.now{background:linear-gradient(90deg,var(--accent),var(--point))}
+  .kb-miss{color:#d97706;font-size:13px;line-height:1.7}
+  /* weather */
+  .wgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px}
+  .wcell{background:var(--gradSoft);border:1px solid var(--line);border-radius:12px;padding:14px;text-align:center}
+  .wcell .wv{font-size:24px;font-weight:bold;color:var(--accent)}
+  .wcell .wl{font-size:12px;color:var(--muted);margin-top:4px}
+  .wadvice{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:11px 14px;font-size:13px;line-height:1.7;color:var(--text)}
+  .wadvice b{color:var(--accent)}
+
+  /* 对话框（链接输入） */
+  .flow-dialog{background:var(--gradSoft);border:2px dashed var(--accent2);border-radius:14px;padding:16px;margin-bottom:16px}
+  .flow-dialog .ftitle{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:bold;color:var(--accent);margin-bottom:10px}
+  .flow-dialog .fhelp{font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.6}
+  .flow-dialog .fhelp b{color:var(--accent2)}
+
+  /* 语音 / 确认弹窗 / 浮窗提醒 */
+  .voice-stat{font-size:12px;color:var(--muted);min-height:18px;margin-bottom:10px;line-height:1.5}
+  .t-remind{font-size:11px;color:var(--accent2);background:var(--gradSoft);border:1px solid var(--line);border-radius:99px;padding:1px 8px;margin-left:6px;white-space:nowrap}
+  .modal-mask{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center;padding:16px}
+  .modal-mask.on{display:flex}
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;width:100%;max-width:420px;box-shadow:0 10px 40px rgba(0,0,0,.25)}
+  .modal h3{font-size:16px;margin-bottom:14px;color:var(--text)}
+  .modal label{display:block;font-size:12px;color:var(--muted);margin:12px 0 6px}
+  .modal input{width:100%}
+  .modal .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+  .toast{position:fixed;top:18px;left:50%;transform:translate(-50%,-140%);z-index:300;background:var(--grad);color:var(--gradText);padding:14px 18px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.3);max-width:90vw;display:flex;align-items:center;gap:14px;transition:transform .35s;font-size:14px}
+  .toast.on{transform:translate(-50%,0)}
+  .toast .tbtn{background:rgba(255,255,255,.28);border:none;color:var(--gradText);padding:6px 12px;border-radius:8px;cursor:pointer;font-weight:bold;font-size:13px;white-space:nowrap}
+  .toast .tbtn.ghost{background:transparent;border:1px solid rgba(255,255,255,.55)}
+  .done-group{margin-bottom:14px}
+  .done-group .dh{font-size:13px;color:var(--muted);margin-bottom:6px;font-weight:bold}
+  .done-item{font-size:13.5px;color:var(--text);padding:6px 2px;border-bottom:1px dashed var(--line)}
+
+  @media(max-width:760px){
+    .menu-toggle{display:block}
+    .sidebar{position:fixed;left:-240px;top:0;z-index:100;transition:left .25s;height:100vh}
+    .sidebar.open{left:0}
+    .main{padding:16px}
+    .stat3{grid-template-columns:1fr}
+    .wgrid{grid-template-columns:1fr 1fr 1fr}
+    .sb-mask{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:99}
+    .sb-mask.open{display:block}
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+  <!-- 侧边栏 -->
+  <div class="sb-mask" id="mask" onclick="toggleSb()"></div>
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-profile">
+      <div class="sb-avatar">✨</div>
+      <div><div class="sb-name">我的工作台</div><div class="sb-role" id="seasonLbl">四季主题</div></div>
+    </div>
+    <div class="sb-item on" data-t="tasks"><span class="ico">📋</span>每日计划</div>
+    <div class="sb-item" data-t="idea"><span class="ico">💡</span>选题每日灵感</div>
+    <div class="sb-item" data-t="hot"><span class="ico">🔥</span>爆款热点视频/二创</div>
+    <div class="sb-item" data-t="xhs"><span class="ico">📕</span>小红书爆款</div>
+    <div class="sb-item" data-t="flow"><span class="ico">🛠</span>复用工作流</div>
+    <div class="sb-item" data-t="money"><span class="ico">💰</span>存钱记账</div>
+    <div class="sb-item" data-t="plant"><span class="ico">🌱</span>种植管理</div>
+    <div class="sb-theme">
+      <span class="lbl">🌗 切换季节主题</span>
+      <div class="theme-grid" id="themeGrid"></div>
+    </div>
+  </aside>
+
+  <!-- 主体 -->
+  <main class="main">
+    <div class="topbar">
+      <div style="display:flex;align-items:center;gap:10px">
+        <button class="menu-toggle" onclick="toggleSb()">☰</button>
+        <h1>创作工作台</h1>
+      </div>
+      <div class="right">
+        <span id="todayStr"></span>
+        <span class="badge-season" id="badgeSeason">春</span>
+      </div>
+    </div>
+
+    <!-- ============ 任务 ============ -->
+    <section class="tab on" id="tab-tasks">
+      <div class="panel">
+        <h2>📋 每日计划 <span class="sub" id="taskCount"></span></h2>
+      <div class="progress"><i id="taskBar" style="width:0%"></i></div>
+      <div class="row" style="margin-bottom:6px">
+        <input id="taskInput" placeholder="快速添加任务，回车确认..." style="flex:1;min-width:160px">
+        <button class="btn" onclick="addTask()">添加</button>
+      </div>
+      <div class="row" style="margin-bottom:6px">
+        <input id="nlInput" placeholder="用大白话写，例如：明天下午3点交方案、周六上午取快递" style="flex:1;min-width:160px">
+        <button class="btn ghost" onclick="parseFromText()">整理任务</button>
+      </div>
+      <div class="voice-stat" id="nlHint">支持：今天/明天/周X + 上午·下午·晚上 + 几点（半/几分）。识别后会弹窗让你核对时间。</div>
+      <div id="taskList"></div>
+      </div>
+      <div class="panel">
+        <h2>每日固定任务 <span class="sub">每天自动加入今日任务</span></h2>
+        <div class="row" style="margin-bottom:12px">
+          <input id="tplInput" placeholder="如：刷1小时行业资讯 / 剪一条视频..." style="flex:1;min-width:200px">
+          <button class="btn ghost" onclick="addTpl()">设为每日任务</button>
+        </div>
+        <div id="tplList"></div>
+      </div>
+      <div class="panel">
+        <h2>✅ 已完成记录 <span class="sub">按完成日期归档</span></h2>
+        <div id="doneHistory"></div>
+      </div>
+    </section>
+
+    <!-- ============ 抖音热点 ============ -->
+    <section class="tab" id="tab-hot">
+      <div class="panel">
+        <h2>🔥 今日抖音爆款热点 <span class="sub" id="hotDate"></span></h2>
+        <div id="hotList"></div>
+      </div>
+    </section>
+
+    <!-- ============ 每日灵感 ============ -->
+    <section class="tab" id="tab-idea">
+      <div class="panel">
+        <h2>💡 今日灵感来源 <span class="sub" id="ideaDate"></span></h2>
+        <div class="summary" id="hotSummary"></div>
+        <div id="ideaList"></div>
+      </div>
+    </section>
+
+    <!-- ============ 小红书爆款 ============ -->
+    <section class="tab" id="tab-xhs">
+      <div class="panel">
+        <h2>📕 小红书爆款收集 <span class="sub" id="xhsDate"></span></h2>
+        <div class="summary" id="xhsSummary"></div>
+        <div id="xhsList"></div>
+      </div>
+    </section>
+
+    <!-- ============ 复用工作流 ============ -->
+    <section class="tab" id="tab-flow">
+      <div class="flow-dialog">
+        <div class="ftitle">🛠 添加视频链接 → 自动整理为工作流</div>
+        <div class="fhelp">
+          把你看到的<b>抖音 / 小红书 / 视频号</b>视频链接粘到下面，说一句"拆解成工作流"，我会下载视频内容、提取关键步骤、写入工作流库（也支持你直接发链接给我，我帮填这条记录）。
+        </div>
+        <div class="row">
+          <input id="flowLink" placeholder="https://v.douyin.com/xxx 或 小红书链接..." style="flex:1;min-width:180px">
+          <input id="flowTitle" placeholder="给这段工作流起个名字（可选）" style="flex:1;min-width:140px">
+          <button class="btn" onclick="submitFlow()">发送给 WorkBuddy</button>
+        </div>
+      </div>
+      <div id="flowList"></div>
+    </section>
+
+    <!-- ============ 记账 ============ -->
+    <section class="tab" id="tab-money">
+      <div class="panel">
+        <h2>💰 记一笔 <span class="sub">3秒记账</span></h2>
+        <div class="row">
+          <input id="mAmt" type="number" step="0.01" placeholder="金额 ¥" style="width:110px">
+          <select id="mCat">
+            <option>餐饮</option><option>购物</option><option>交通</option><option>日用</option>
+            <option>娱乐</option><option>话费网费</option><option>医疗</option><option>其他</option>
+          </select>
+          <select id="mPay">
+            <option>微信</option><option>支付宝</option><option>云闪付</option><option>现金/其他</option>
+          </select>
+          <input id="mNote" placeholder="备注（可选）" style="flex:1;min-width:120px">
+          <button class="btn" onclick="addBill()">记账</button>
+        </div>
+      </div>
+      <div class="stat3">
+        <div class="stat"><div class="v" id="sToday">¥0</div><div class="l">今日支出</div></div>
+        <div class="stat"><div class="v" id="sMonth">¥0</div><div class="l">本月支出</div></div>
+        <div class="stat"><div class="v" id="sAvg" style="color:var(--accent2)">¥0</div><div class="l">本月日均</div></div>
+      </div>
+      <div class="panel">
+        <h2>本月分类占比</h2>
+        <div id="catBars"><div class="empty">暂无数据</div></div>
+      </div>
+      <div class="panel">
+        <h2>每日账单 <span class="sub">最近7天</span></h2>
+        <div id="billList"></div>
+      </div>
+    </section>
+
+    <!-- ============ 种植 ============ -->
+    <section class="tab" id="tab-plant">
+      <div class="panel">
+        <h2>🌤 今日种植环境 <span class="sub" id="wLoc"></span></h2>
+        <div class="row" style="margin-bottom:10px">
+          <input id="cityInput" placeholder="输入城市，如：汕头" style="flex:1;min-width:140px">
+          <button class="btn" onclick="setCity()">应用</button>
+          <button class="btn" onclick="detectLoc()" title="用浏览器/GPS自动定位">📍 自动定位</button>
+        </div>
+        <div id="weatherBox"><div class="empty">正在获取当地温湿度...</div></div>
+      </div>
+      <div class="panel">
+        <h2>添加作物</h2>
+        <div class="row">
+          <input id="pName" placeholder="作物名称，如：番茄" style="flex:1;min-width:140px">
+          <input id="pDate" type="date" style="width:160px">
+          <button class="btn" onclick="addPlant()">添加</button>
+        </div>
+        <div style="margin-top:10px;font-size:12px;color:var(--muted)">
+          内置养护知识库：<span id="kbNames"></span>。其他作物添加后，在对话里让 WorkBuddy 联网查询养护技巧并加入知识库即可。
+        </div>
+      </div>
+      <div id="plantList"></div>
+    </section>
+  </main>
+</div>
+
+<!-- 任务核对弹窗 -->
+<div class="modal-mask" id="taskConfirmMask">
+  <div class="modal">
+    <h3>🔎 核对任务信息</h3>
+    <label>任务内容</label>
+    <input id="cfName" placeholder="确认或修改任务内容">
+    <label>提醒时间（可选，留空则不提醒）</label>
+    <input id="cfTime" type="datetime-local">
+    <div class="actions">
+      <button class="btn ghost" onclick="closeConfirm()">取消</button>
+      <button class="btn" onclick="confirmTask()">确认添加</button>
+    </div>
+  </div>
+</div>
+<!-- 浮窗提醒 -->
+<div class="toast" id="reminderToast">
+  <span>🔔 <b id="toastName"></b></span>
+  <button class="tbtn ghost" onclick="hideToast()">知道了</button>
+  <button class="tbtn" onclick="goDoTask()">去完成</button>
+</div>
+
+<script src="data/themes.js"></script>
+<script src="data/cities.js"></script>
+<script src="data/hotspots.js"></script>
+<script src="data/xhs.js"></script>
+<script src="data/workflows.js"></script>
+<script src="data/plant_kb.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const todayKey=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
+const load=(k,d)=>{try{return JSON.parse(localStorage.getItem(k))??d}catch(e){return d}};
+const save=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+const now=new Date();
+$("todayStr").textContent=now.getFullYear()+"年"+(now.getMonth()+1)+"月"+now.getDate()+"日 "+["周日","周一","周二","周三","周四","周五","周六"][now.getDay()];
+
+/* ================= 季节主题 ================= */
+const themes=window.SEASON_THEMES;
+const autoSeason=window.getAutoSeason();
+let curSeason=load("wb_season",autoSeason);
+function applyTheme(s){
+  const t=themes[s];
+  for(const k in t)document.documentElement.style.setProperty("--"+k,t[k]);
+  $("badgeSeason").textContent=t.name;
+  $("seasonLbl").textContent=t.name+"季主题";
+  document.querySelectorAll(".theme-btn").forEach(b=>b.classList.toggle("on",b.dataset.s===s));
+}
+function buildThemes(){
+  $("themeGrid").innerHTML=Object.entries(themes).map(([k,v])=>`<div class="theme-btn" data-s="${k}" style="background:${v.grad};color:${v.gradText||'#fff'}" title="${v.name}季">${v.name}</div>`).join("");
+  document.querySelectorAll(".theme-btn").forEach(b=>b.onclick=()=>{curSeason=b.dataset.s;save("wb_season",curSeason);applyTheme(curSeason)});
+}
+buildThemes(); applyTheme(curSeason);
+
+/* ================= Tab 切换 ================= */
+function switchTab(t){
+  document.querySelectorAll(".sb-item").forEach(x=>x.classList.toggle("on",x.dataset.t===t));
+  document.querySelectorAll(".tab").forEach(x=>x.classList.remove("on"));
+  $("tab-"+t).classList.add("on");
+  if(window.innerWidth<=760)$("sidebar").classList.remove("open"),$("mask").classList.remove("open");
+}
+document.querySelectorAll(".sb-item").forEach(b=>b.onclick=()=>switchTab(b.dataset.t));
+function toggleSb(){$("sidebar").classList.toggle("open");$("mask").classList.toggle("open")}
+
+/* ================= 任务 ================= */
+let tasks=load("wb_tasks",[]), tpls=load("wb_tpls",[]);
+(function(){
+  const t=todayKey();
+  if(load("wb_tpl_day","")!==t){
+    tpls.forEach(name=>{ if(!tasks.some(x=>x.date===t&&x.name===name)) tasks.push({id:Date.now()+Math.random(),name,done:false,date:t,fromTpl:true}); });
+    save("wb_tasks",tasks); save("wb_tpl_day",t);
+  }
+})();
+function renderTasks(){
+  const t=todayKey(), list=tasks.filter(x=>x.date===t);
+  const done=list.filter(x=>x.done).length;
+  $("taskCount").textContent=list.length?`${done}/${list.length} 已完成`:"";
+  $("taskBar").style.width=(list.length?done/list.length*100:0)+"%";
+  $("taskList").innerHTML=list.length?list.map(x=>`
+    <div class="task ${x.done?"done":""}">
+      <input type="checkbox" ${x.done?"checked":""} onchange="toggleTask(${x.id})">
+      <span class="t-name">${x.fromTpl?"📌 ":""}${x.source==="voice"?"🎤 ":""}${esc(x.name)}</span>
+      ${x.remindAt&&!x.done?`<span class="t-remind">🔔 ${fmtRemind(x.remindAt)}</span><button class="cal" onclick="addToCalendar(${x.id})" title="添加到手机日历">📅</button>`:""}
+      <button class="del" onclick="delTask(${x.id})">✕</button>
+    </div>`).join(""):'<div class="empty">今天还没有任务，加一个吧</div>';
+  $("tplList").innerHTML=tpls.length?tpls.map((n,i)=>`<span class="chip"><b>${esc(n)}</b><span class="x" onclick="delTpl(${i})">✕</span></span>`).join(""):'<div class="empty">还没有每日固定任务</div>';
+  renderDoneHistory();
+}
+function addTask(){const v=$("taskInput").value.trim();if(!v)return;tasks.push({id:Date.now(),name:v,done:false,date:todayKey()});save("wb_tasks",tasks);$("taskInput").value="";renderTasks()}
+$("taskInput").addEventListener("keydown",e=>{if(e.key==="Enter")addTask()});
+$("nlInput").addEventListener("keydown",e=>{if(e.key==="Enter")parseFromText()});
+function toggleTask(id){const x=tasks.find(t=>t.id===id);if(x){x.done=!x.done;if(x.done){x.completedDate=todayKey();x.remindAt=null;hideToast()}else x.completedDate=null}save("wb_tasks",tasks);renderTasks()}
+function delTask(id){tasks=tasks.filter(t=>t.id!==id);save("wb_tasks",tasks);renderTasks()}
+function addTpl(){const v=$("tplInput").value.trim();if(!v||tpls.includes(v))return;tpls.push(v);save("wb_tpls",tpls);
+  const t=todayKey(); if(!tasks.some(x=>x.date===t&&x.name===v)){tasks.push({id:Date.now(),name:v,done:false,date:t,fromTpl:true});save("wb_tasks",tasks)}
+  $("tplInput").value="";renderTasks()}
+function delTpl(i){tpls.splice(i,1);save("wb_tpls",tpls);renderTasks()}
+renderTasks();
+
+/* ================= 口语整理 + 核对 + 浮窗提醒 ================= */
+let ntfGranted=false;
+if("Notification"in window&&Notification.permission==="granted")ntfGranted=true;
+function ensureNtf(){ if("Notification"in window&&Notification.permission!=="denied"){ try{Notification.requestPermission().then(p=>{ntfGranted=(p==="granted")}).catch(()=>{})}catch(e){} } }
+
+function parseFromText(){
+  const v=$("nlInput").value.trim();
+  if(!v){$("nlInput").focus();return;}
+  const p=parseTask(v);
+  if(!p.name){ $("nlHint").textContent="⚠️ 没识别到任务内容，请再描述清楚一点，例如「下午3点开会」"; return; }
+  openConfirm(p.name,p.remindAt);
+  $("nlInput").value="";
+  $("nlHint").textContent="已整理，请在弹窗里核对时间后确认添加。";
+}
+
+// 中文任务/时间解析（best-effort，覆盖常见说法）
+function parseTask(raw){
+  let text=raw.trim(); let dayOffset=0,hour=null,minute=0;
+  if(/(明天|明日)/.test(text))dayOffset=1;
+  else if(/(后天)/.test(text))dayOffset=2;
+  else if(/(大后天)/.test(text))dayOffset=3;
+  const wm=text.match(/(?:周|礼拜|星期)([一二三四五六日])/);
+  if(wm){const w={日:0,一:1,二:2,三:3,四:4,五:5,六:6}[wm[1]];const c=new Date().getDay();let d=(w-c+7)%7;if(d===0)d=7;dayOffset=d;}
+  let period=null;
+  if(/(凌晨|半夜|深夜)/.test(text))period="am0";
+  else if(/(早上|早晨|清早|上午|清晨)/.test(text))period="am";
+  else if(/(中午|正午)/.test(text))period="noon";
+  else if(/(下午|午后)/.test(text))period="pm";
+  else if(/(晚上|夜里|夜晚|傍晚)/.test(text))period="eve";
+  let hm=text.match(/(\d{1,2})\s*点\s*(半|(\d{1,2})\s*分?)?/)||text.match(/(\d{1,2})\s*时\s*(半|(\d{1,2})\s*分?)?/);
+  if(hm){hour=+hm[1]; if(hm[2]==="半")minute=30; else if(hm[3]!==undefined)minute=+hm[3]; else minute=0;
+    if(period==="pm"&&hour<12)hour+=12;
+    else if(period==="eve"){if(hour<12)hour+=12;if(hour<18)hour=18;}
+    else if(period==="noon"&&hour<=6)hour+=12;
+    else if((period==="am"||period==="am0")&&hour===12)hour=0;
+  }
+  let remindAt=null;
+  if(hour!==null){const d=new Date();d.setDate(d.getDate()+dayOffset);d.setHours(hour,minute,0,0);remindAt=d.getTime();}
+  let name=text
+    .replace(/(提醒我|记得|帮我|我要|我想|去|一会儿|等下|待会|现在|今天|今日|明天|明日|后天|大后天|周[一二三四五六日]|礼拜[一二三四五六日]|星期[一二三四五六日]|凌晨|半夜|深夜|早上|早晨|清早|上午|清晨|中午|正午|下午|午后|晚上|夜里|夜晚|傍晚)/g,"")
+    .replace(/\d{1,2}\s*[点时]\s*(半|\d{1,2}\s*分?)?/g,"")
+    .replace(/[，,。.、和跟]/g,"").replace(/\s+/g,"").trim();
+  if(!name)name=text.trim();
+  return {name,remindAt};
+}
+function fmtRemind(ms){const d=new Date(ms);const p=n=>String(n).padStart(2,"0");return `${d.getMonth()+1}/${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}`;}
+
+// 导出 .ics 日历文件（手机点开后加入系统日历，由系统准时提醒）
+function buildICS(t){
+  const uid=`wb-${t.id}@workbuddy`;
+  const stamp=new Date().toISOString().replace(/[-:]/g,"").replace(/\.\d{3}/,"");
+  const fmt=d=>d.toISOString().replace(/[-:]/g,"").replace(/\.\d{3}/,"");
+  const dt=fmt(new Date(t.remindAt));            // UTC，规避时区歧义
+  const dte=fmt(new Date(t.remindAt+30*60000));  // 非零时长，避免部分日历忽略闹铃
+  const sum=(t.name||"任务提醒").replace(/([,;\\])/g,"\\$1").replace(/\n/g,"\\n");
+  return [
+    "BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//WorkBuddy//Task//CN","CALSCALE:GREGORIAN","METHOD:PUBLISH",
+    "BEGIN:VEVENT",`UID:${uid}`,`DTSTAMP:${stamp}`,`DTSTART:${dt}`,`DTEND:${dte}`,
+    `SUMMARY:${sum}`,`DESCRIPTION:来自工作台的提醒`,
+    "BEGIN:VALARM","ACTION:DISPLAY",`DESCRIPTION:${sum}`,"TRIGGER:-PT0M","END:VALARM",
+    "END:VEVENT","END:VCALENDAR"
+  ].join("\r\n");
+}
+function addToCalendar(id){
+  const t=tasks.find(x=>x.id===id);
+  if(!t||!t.remindAt){alert("这条任务没有设定提醒时间，无法加入日历。");return;}
+  const ics=buildICS(t);
+  const blob=new Blob([ics],{type:"text/calendar;charset=utf-8"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url; a.download=`提醒-${t.name.slice(0,12)}.ics`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),3000);
+  alert("已生成日历文件 📅\n\n手机上点开后选「添加到日历」即可，之后由系统准时提醒（关掉网页也响）。\n\n提示：iPhone 若直接下载到「文件」，可长按该 .ics 文件 → 选「添加到日历」。");
+}
+
+// 核对弹窗
+function openConfirm(name,remindAt){
+  $("cfName").value=name||"";
+  if(remindAt){const d=new Date(remindAt);const p=n=>String(n).padStart(2,"0");
+    $("cfTime").value=`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;}
+  else $("cfTime").value="";
+  $("taskConfirmMask").classList.add("on");
+}
+function closeConfirm(){$("taskConfirmMask").classList.remove("on")}
+function parseLocalDT(s){
+  const m=String(s).match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if(!m)return null;
+  return new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5],0,0).getTime();
+}
+function confirmTask(){
+  const name=$("cfName").value.trim(); if(!name){$("cfName").focus();return;}
+  const tv=$("cfTime").value;
+  const remindAt=tv?parseLocalDT(tv):null;
+  if(remindAt)ensureNtf();
+  tasks.push({id:Date.now(),name,done:false,date:todayKey(),source:"nl",remindAt,completedDate:null});
+  save("wb_tasks",tasks); closeConfirm(); renderTasks();
+}
+
+// 已完成记录（按完成日期归档）
+function renderDoneHistory(){
+  const done=tasks.filter(t=>t.done&&t.completedDate);
+  const by={}; done.forEach(t=>{(by[t.completedDate]=by[t.completedDate]||[]).push(t);});
+  const dates=Object.keys(by).sort().reverse();
+  $("doneHistory").innerHTML=dates.length?dates.map(d=>`<div class="done-group"><div class="dh">${d}（${by[d].length} 项）</div>`+by[d].map(t=>`<div class="done-item">✅ ${esc(t.name)}</div>`).join("")+`</div>`).join(""):'<div class="empty">还没有已完成的任务记录</div>';
+}
+
+// 浮窗提醒引擎（remindAt 以毫秒时间戳存储，规避时区解析歧义）
+function checkReminders(){
+  const now=Date.now();
+  tasks.forEach(t=>{
+    if(t.remindAt&&!t.done){
+      const rt=typeof t.remindAt==="string"?new Date(t.remindAt).getTime():t.remindAt;
+      if(rt<=now && (!t.lastRemind || now-t.lastRemind>10*60000)){
+        showToast(t); t.lastRemind=now; save("wb_tasks",tasks);
+      }
+    }
+  });
+}
+function showToast(t){
+  $("toastName").textContent=t.name;
+  $("reminderToast").classList.add("on");
+  if(ntfGranted){try{new Notification("⏰ 任务提醒",{body:t.name})}catch(e){}}
+}
+function hideToast(){$("reminderToast").classList.remove("on")}
+function goDoTask(){hideToast();switchTab("tasks")}
+
+setInterval(checkReminders,10000); checkReminders();
+
+/* ================= 抖音热点 & 灵感 ================= */
+const suitBadge=s=>s==="适合"?'<span class="badge b-ok">✅ 适合二创</span>':s==="谨慎"?'<span class="badge b-warn">⚠️ 谨慎</span>':'<span class="badge b-no">🚫 不建议</span>';
+// 点击标题拉起 App：有真实链接(url)直接开（手机自动进 App）；否则走 App 深链搜索，失败回落网页搜索
+document.addEventListener("click",function(e){
+  const a=e.target.closest("a.japp"); if(!a)return; e.preventDefault();
+  const app=a.getAttribute("data-app"), q=a.getAttribute("data-q")||"", url=a.getAttribute("data-url")||"";
+  if(url){ window.open(url,"_blank"); return; }
+  let scheme,web;
+  if(app==="douyin"){ scheme="snssdk1128://search?keyword="+encodeURIComponent(q); web="https://www.douyin.com/search/"+encodeURIComponent(q); }
+  else if(app==="xhs"){ scheme="xhsdiscover://search_result?keyword="+encodeURIComponent(q); web="https://www.xiaohongshu.com/search_result?keyword="+encodeURIComponent(q)+"&source=web_explore_feed"; }
+  else return;
+  const start=Date.now();
+  window.location.href=scheme;
+  setTimeout(function(){ if(Date.now()-start<2600){ window.open(web,"_blank"); } },1700);
+});
+(function(){
+  const d=window.HOTSPOT_DATA;
+  if(!d){$("hotList").innerHTML='<div class="empty">暂无热点数据。自动化任务每天早上会更新，也可以在对话里让 WorkBuddy 立即抓取。</div>';$("hotSummary").outerHTML="";return}
+  $("hotDate").textContent=d.date+" "+(d.updated||"")+" 更新";
+  $("ideaDate").textContent=d.date+" 更新";
+  $("hotList").innerHTML=d.items.map((x,i)=>`
+    <div class="hcard">
+      <div class="top">
+        <span class="rank">#${i+1}</span>
+        <a class="word japp" data-app="douyin" data-q="${esc(x.word)}" href="javascript:void(0)">${esc(x.word)} <span class="jump">📱 打开抖音</span></a>
+        <span class="hot">🔥 ${x.hot}万</span>
+        <span class="badge b-cat">${esc(x.category)}</span>
+        ${suitBadge(x.suit)}
+      </div>
+      <div class="hline"><b>热点逻辑：</b>${esc(x.logic)}</div>
+    </div>`).join("");
+  $("hotSummary").innerHTML="💡 <b>今日灵感总结：</b>"+esc(d.summary);
+  const usable=d.items.filter(x=>x.suit!=="不适合");
+  $("ideaList").innerHTML=usable.map(x=>`
+    <div class="hcard">
+      <div class="top">
+        <a class="word japp" data-app="douyin" data-q="${esc(x.word)}" href="javascript:void(0)">${esc(x.word)} <span class="jump">📱 打开抖音</span></a>
+        <span class="badge b-cat">${esc(x.category)}</span>
+        ${suitBadge(x.suit)}
+      </div>
+      <div class="hline idea"><b>二创灵感：</b>${esc(x.idea)}</div>
+    </div>`).join("")||'<div class="empty">今日暂无可用灵感</div>';
+})();
+
+/* ================= 小红书爆款 ================= */
+(function(){
+  const d=window.XHS_DATA;
+  if(!d){$("xhsSummary").outerHTML='<div class="empty">暂无小红书数据，自动化任务每天早上更新。</div>';return}
+  $("xhsDate").textContent=d.date+"（"+(d.threshold||"2万赞以上")+"）";
+  $("xhsSummary").innerHTML="📕 <b>本期爆款总结：</b>"+esc(d.summary);
+  $("xhsList").innerHTML=d.items.map((x,i)=>`
+    <div class="hcard">
+      <div class="top">
+        <span class="rank">#${i+1}</span>
+        <a class="word japp" data-app="xhs" data-q="${esc(x.title)}" data-url="${x.url?esc(x.url):""}" href="javascript:void(0)">${esc(x.title)} <span class="jump">📱 打开小红书</span></a>
+        <span class="hot">❤️ ${x.likes}万赞</span>
+        <span class="badge b-cat">${esc(x.type||'')}</span>
+        <span class="badge b-cat">${esc(x.category)}</span>
+      </div>
+      <div class="hline"><b>爆款逻辑：</b>${esc(x.why)}</div>
+      <div class="hline idea"><b>可复用点：</b>${esc(x.idea)}</div>
+    </div>`).join("");
+})();
+
+/* ================= 工作流 ================= */
+function renderFlow(){
+  const list=window.WORKFLOW_DATA||[];
+  $("flowList").innerHTML=list.length?list.map(w=>`
+    <div class="fcard">
+      <div class="top">
+        <span class="word">${w.demo?"🧪 ":""}${esc(w.title)}</span>
+        <span class="badge b-cat">${esc(w.platform||"")}</span>
+        <span style="color:var(--muted);font-size:12px">${esc(w.date||"")}</span>
+      </div>
+      ${w.summary?`<div class="hline" style="margin:6px 0">${esc(w.summary)}</div>`:""}
+      <ol class="fsteps">${(w.steps||[]).map(s=>`<li>${esc(s)}</li>`).join("")}</ol>
+      ${(w.tools&&w.tools.length)?`<div class="hline"><b>工具：</b>${w.tools.map(esc).join("、")}</div>`:""}
+      ${w.tips?`<div class="hline idea"><b>关键提示：</b>${esc(w.tips)}</div>`:""}
+      ${w.source?`<div class="hline"><b>来源：</b><a href="${esc(w.source)}" target="_blank" style="color:var(--accent2)">原视频链接</a></div>`:""}
+    </div>`).join(""):'<div class="empty">还没有工作流，把视频链接发到对话里说"拆解成工作流"，或填上面表单</div>';
+}
+renderFlow();
+function submitFlow(){
+  const link=$("flowLink").value.trim(),title=$("flowTitle").value.trim();
+  if(!link){$("flowLink").focus();return}
+  // 平台识别
+  let platform="未知";
+  if(/douyin\.com|iesdouyin\.com|抖音/.test(link))platform="抖音";
+  else if(/xiaohongshu\.com|小红书|xhslink/.test(link))platform="小红书";
+  else if(/weixin\.qq\.com|视频号|channel/.test(link))platform="视频号";
+  // 复制一段给用户，方便粘贴到对话
+  const msg=`帮我拆解这条${platform}视频为可复用工作流：\n链接：${link}\n标题建议：${title||"（你来定）"}\n请按工作台 workflows.js 的格式整理后写入，并自动重新部署。`;
+  // 尝试复制到剪贴板
+  if(navigator.clipboard){navigator.clipboard.writeText(msg).catch(()=>{})}
+  // 给用户视觉提示
+  $("flowLink").value="";$("flowTitle").value="";
+  alert("✅ 已为你复制对话话术到剪贴板！\n\n打开 WorkBuddy 对话，按 Ctrl+V 粘贴发送即可。\n\n（链接： "+link+" ）");
+}
+
+/* ================= 记账 ================= */
+let bills=load("wb_bills",[]);
+function addBill(){
+  const amt=parseFloat($("mAmt").value);
+  if(!amt||amt<=0){$("mAmt").focus();return}
+  bills.push({id:Date.now(),amt:Math.round(amt*100)/100,cat:$("mCat").value,pay:$("mPay").value,note:$("mNote").value.trim(),date:todayKey(),time:new Date().toTimeString().slice(0,5)});
+  save("wb_bills",bills);$("mAmt").value="";$("mNote").value="";renderMoney();
+}
+function delBill(id){bills=bills.filter(b=>b.id!==id);save("wb_bills",bills);renderMoney()}
+function renderMoney(){
+  const t=todayKey(), mon=t.slice(0,7);
+  const fmt=n=>"¥"+n.toFixed(2).replace(/\.00$/,"");
+  const tSum=bills.filter(b=>b.date===t).reduce((s,b)=>s+b.amt,0);
+  const mBills=bills.filter(b=>b.date.slice(0,7)===mon);
+  const mSum=mBills.reduce((s,b)=>s+b.amt,0);
+  $("sToday").textContent=fmt(tSum);$("sMonth").textContent=fmt(mSum);
+  $("sAvg").textContent=fmt(mSum/now.getDate());
+  const cats={};mBills.forEach(b=>cats[b.cat]=(cats[b.cat]||0)+b.amt);
+  const entries=Object.entries(cats).sort((a,b)=>b[1]-a[1]);
+  $("catBars").innerHTML=entries.length?entries.map(([c,v])=>`
+    <div class="bar-row"><span class="bl">${c}</span><div class="bar"><i style="width:${mSum?v/mSum*100:0}%"></i></div><span class="bv">${fmt(v)}</span></div>`).join(""):'<div class="empty">本月暂无记录</div>';
+  const days=[...new Set(bills.map(b=>b.date))].sort().reverse().slice(0,7);
+  $("billList").innerHTML=days.length?days.map(d=>{
+    const list=bills.filter(b=>b.date===d).sort((a,b)=>b.id-a.id);
+    const sum=list.reduce((s,b)=>s+b.amt,0);
+    return `<div class="day-group"><div class="dh"><span>${d===t?"今天 "+d:d}</span><span>合计 ${fmt(sum)}</span></div>`+
+      list.map(b=>`<div class="bill"><span class="cat">${esc(b.cat)}</span><span class="pay">${esc(b.pay)} ${b.time||""}</span><span class="note">${esc(b.note||"")}</span><span class="amt">-${fmt(b.amt)}</span><button class="del" onclick="delBill(${b.id})">✕</button></div>`).join("")+"</div>";
+  }).join(""):'<div class="empty">还没有账单记录</div>';
+}
+renderMoney();
+
+/* ================= 种植 ================= */
+let plants=load("wb_plants",[]);
+$("pDate").value=todayKey();
+$("kbNames").textContent=Object.keys(window.PLANT_KB||{}).join("、");
+function findKB(name){
+  const kb=window.PLANT_KB||{};
+  if(kb[name])return kb[name];
+  for(const k in kb){if(name.includes(k)||k.includes(name))return kb[k]}
+  return null;
+}
+function addPlant(){
+  const n=$("pName").value.trim(),d=$("pDate").value;
+  if(!n||!d)return;
+  plants.push({id:Date.now(),name:n,date:d});save("wb_plants",plants);$("pName").value="";renderPlants();
+}
+function delPlant(id){if(!confirm("删除这个作物记录？"))return;plants=plants.filter(p=>p.id!==id);save("wb_plants",plants);renderPlants()}
+function renderPlants(){
+  $("plantList").innerHTML=plants.length?plants.map(p=>{
+    const days=Math.floor((new Date(todayKey())-new Date(p.date))/86400000);
+    const kb=findKB(p.name);
+    let stageHtml="";
+    function card(p,days,stage,inner){
+      return `<div class="pcard">
+        <div class="ph">
+          <span class="pname">🌱 ${esc(p.name)}</span>
+          <span class="pdays">种下第 ${days} 天</span>
+          ${stage?`<span class="pstage">${stage}</span>`:""}
+          <span style="flex:1"></span>
+          <span style="color:var(--muted);font-size:12px">${p.date} 种植</span>
+          <button class="del" onclick="delPlant(${p.id})">✕</button>
+        </div>${inner}</div>`;
+    }
+    if(kb){
+      let idx=kb.stages.findIndex(s=>days>=s.from&&days<=s.to);
+      if(idx<0)idx=kb.stages.length-1;
+      const st=kb.stages[idx], next=kb.stages[idx+1];
+      stageHtml=`
+        <div class="stagebar">${kb.stages.map((s,i)=>`<span class="${i<idx?"past":i===idx?"now":""}" title="${s.name}"></span>`).join("")}</div>
+        <div class="ptips"><b>【${st.name}】养护要点：</b>${esc(st.tips)}</div>
+        ${next?`<div class="pnext">⏭ 约第 ${next.from} 天进入「${next.name}」（还有 ${Math.max(0,next.from-days)} 天）</div>`:'<div class="pnext">已是最后阶段</div>'}`;
+      return card(p,days,st.name,stageHtml);
+    }
+    stageHtml=`<div class="ptips kb-miss">📖 知识库暂无「${esc(p.name)}」的养护资料。在对话里对 WorkBuddy 说：<br>"帮我联网查一下 ${esc(p.name)} 的分期养护技巧，加入工作台知识库"，下次打开就能看到。</div>`;
+    return card(p,days,null,stageHtml);
+  }).join(""):'<div class="empty">还没有添加作物</div>';
+}
+renderPlants();
+
+/* ================= 天气 ================= */
+async function fetchWeather(lat,lon,city){
+  const box=$("weatherBox");
+  const w=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=1`).then(r=>r.json());
+  const c=w.current, tmax=w.daily.temperature_2m_max[0], tmin=w.daily.temperature_2m_min[0];
+  const codes={0:"☀️ 晴",1:"🌤 少云",2:"⛅ 多云",3:"☁️ 阴",45:"🌫 雾",48:"🌫 雾凇",51:"🌦 毛毛雨",53:"🌦 小雨",55:"🌧 中雨",61:"🌧 小雨",63:"🌧 中雨",65:"🌧 大雨",71:"🌨 小雪",73:"🌨 中雪",75:"❄️ 大雪",80:"🌦 阵雨",81:"🌧 阵雨",82:"⛈ 强阵雨",95:"⛈ 雷雨",96:"⛈ 雷雨冰雹",99:"⛈ 强雷雨"};
+  const desc=codes[c.weather_code]||"🌡";
+  const t=c.temperature_2m, h=c.relative_humidity_2m;
+  const adv=[];
+  if(t>=35)adv.push("高温预警：正午遮阴，改为清晨/傍晚浇水，避免中午浇水烫根");
+  else if(t>=30)adv.push("温度偏高：加大浇水频率，注意叶片萎蔫及时补水");
+  else if(t<=5)adv.push("低温注意：防寒防霜，盆栽建议移入室内或覆膜");
+  else adv.push("温度适宜，正常养护即可");
+  if(h<40)adv.push("空气干燥：可向叶面喷雾增湿，土壤更易失水注意补浇");
+  else if(h>85)adv.push("湿度偏高：加强通风，少浇水，警惕霜霉病/白粉病等真菌病害");
+  if([61,63,65,80,81,82,95,96,99].includes(c.weather_code))adv.push("有降雨：今天可不浇水，露天盆栽注意排水防涝");
+  $("wLoc").textContent=city;
+  box.innerHTML=`
+    <div class="wgrid">
+      <div class="wcell"><div class="wv">${Math.round(t)}°C</div><div class="wl">当前温度（${Math.round(tmin)}~${Math.round(tmax)}°C）</div></div>
+      <div class="wcell"><div class="wv">${h}%</div><div class="wl">空气湿度</div></div>
+      <div class="wcell"><div class="wv" style="font-size:20px">${desc}</div><div class="wl">天气</div></div>
+    </div>
+    <div class="wadvice"><b>🌱 今日养护提示：</b>${adv.join("；")}。</div>`;
+}
+async function loadWeather(){
+  const sl=localStorage.getItem("wb_lat"), so=localStorage.getItem("wb_lon"), sc=localStorage.getItem("wb_city");
+  if(sl&&so&&!/定位/.test(sc||"")){ try{ await fetchWeather(parseFloat(sl),parseFloat(so),sc); return; }catch(e){} }
+  detectLoc(); // 无有效保存位置时尝试 GPS，失败则提示手动输入
+}
+async function setCity(){
+  const v=$("cityInput").value.trim();
+  if(!v){$("cityInput").focus();return;}
+  $("weatherBox").innerHTML='<div class="empty">正在查询「'+esc(v)+'」的天气...</div>';
+  let lat=null,lon=null,city=v;
+  const lc=window.cityCoord?window.cityCoord(v):null; // 0) 离线城市表（保证中文城市可用）
+  if(lc){ lat=lc[0]; lon=lc[1]; city=v; }
+  if(lat===null) try{ // 1) Nominatim 支持中文
+    const g=await fetch("https://nominatim.openstreetmap.org/search?q="+encodeURIComponent(v)+"&format=json&limit=1&accept-language=zh-CN").then(r=>r.json());
+    if(g&&g.length){ lat=parseFloat(g[0].lat); lon=parseFloat(g[0].lon); city=g[0].display_name.split(",")[0]; }
+  }catch(e){}
+  if(lat===null){ // 2) 兜底 Open-Meteo（支持拼音/英文）
+    try{
+      const g=await fetch("https://geocoding-api.open-meteo.com/v1/search?name="+encodeURIComponent(v)+"&count=1").then(r=>r.json());
+      if(g&&g.results&&g.results.length){ const r=g.results[0]; lat=r.latitude; lon=r.longitude; city=r.name; }
+    }catch(e){}
+  }
+  if(lat===null){
+    $("weatherBox").innerHTML='<div class="empty">找不到「'+esc(v)+'」，请检查城市名或换个写法（如：汕头 / Shantou）。</div>';
+    return;
+  }
+  localStorage.setItem("wb_lat",lat);localStorage.setItem("wb_lon",lon);localStorage.setItem("wb_city",city);
+  await fetchWeather(lat,lon,city+"（手动设置）");
+}
+async function detectLoc(){
+  const box=$("weatherBox");
+  box.innerHTML='<div class="empty">正在获取定位...</div>';
+  try{
+    const pos=await new Promise((res,rej)=>{
+      if(!navigator.geolocation)return rej();
+      navigator.geolocation.getCurrentPosition(res,rej,{timeout:8000,maximumAge:600000});
+    });
+    const lat=pos.coords.latitude, lon=pos.coords.longitude;
+    localStorage.setItem("wb_lat",lat);localStorage.setItem("wb_lon",lon);localStorage.setItem("wb_city","当前定位（GPS）");
+    await fetchWeather(lat,lon,"当前定位（GPS）");
+  }catch(e){
+    box.innerHTML='<div class="empty">无法自动定位（可能是未授权位置权限）。请在上方输入城市后点「应用」，例如：汕头。</div>';
+  }
+}
+const _sc=localStorage.getItem("wb_city");
+if(_sc&&!/定位/.test(_sc))$("cityInput").value=_sc;
+loadWeather();
+</script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "name": "我的工作台",
+  "short_name": "工作台",
+  "description": "任务·热点灵感·记账·种植 一站式工作台",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f7f5",
+  "theme_color": "#34a67f",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
