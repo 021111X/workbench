@@ -317,6 +317,7 @@
           <input id="cityInput" placeholder="输入城市，如：汕头" style="flex:1;min-width:140px">
           <button class="btn" onclick="setCity()">应用</button>
           <button class="btn" onclick="detectLoc()" title="用浏览器/GPS自动定位">📍 自动定位</button>
+          <button class="btn" onclick="refreshWeatherNow()" title="重新抓取当天温湿度">🔄 刷新</button>
         </div>
         <div id="weatherBox"><div class="empty">正在获取当地温湿度...</div></div>
       </div>
@@ -566,18 +567,33 @@ setInterval(checkReminders,10000); checkReminders();
 
 /* ================= 抖音热点 & 灵感 ================= */
 const suitBadge=s=>s==="适合"?'<span class="badge b-ok">✅ 适合二创</span>':s==="谨慎"?'<span class="badge b-warn">⚠️ 谨慎</span>':'<span class="badge b-no">🚫 不建议</span>';
-// 点击标题拉起 App：有真实链接(url)直接开（手机自动进 App）；否则走 App 深链搜索，失败回落网页搜索
-document.addEventListener("click",function(e){
-  const a=e.target.closest("a.japp"); if(!a)return; e.preventDefault();
-  const app=a.getAttribute("data-app"), q=a.getAttribute("data-q")||"", url=a.getAttribute("data-url")||"";
-  if(url){ window.open(url,"_blank"); return; }
-  let scheme,web;
-  if(app==="douyin"){ scheme="snssdk1128://search?keyword="+encodeURIComponent(q); web="https://www.douyin.com/search/"+encodeURIComponent(q); }
-  else if(app==="xhs"){ scheme="xhsdiscover://search_result?keyword="+encodeURIComponent(q); web="https://www.xiaohongshu.com/search_result?keyword="+encodeURIComponent(q)+"&source=web_explore_feed"; }
-  else return;
+// 点击标题拉起 App：有真实笔记直链优先用 explore 直链（移动端 universal link 直接进 App）；否则拉起 App 深链搜索，失败回落正确 web 搜索端点
+function openApp(scheme,web){
   const start=Date.now();
   window.location.href=scheme;
   setTimeout(function(){ if(Date.now()-start<2600){ window.open(web,"_blank"); } },1700);
+}
+document.addEventListener("click",function(e){
+  const a=e.target.closest("a.japp"); if(!a)return; e.preventDefault();
+  const app=a.getAttribute("data-app"), q=a.getAttribute("data-q")||"", url=a.getAttribute("data-url")||"";
+  if(app==="douyin"){
+    openApp("snssdk1128://search?keyword="+encodeURIComponent(q), "https://www.douyin.com/search/"+encodeURIComponent(q));
+    return;
+  }
+  if(app==="xhs"){
+    // 真实笔记直链：优先 explore（移动端 universal link 直接进 App，桌面端开网页）
+    const m=url.match(/xiaohongshu\.com\/explore\/([A-Za-z0-9]+)/);
+    if(m){
+      const noteId=m[1];
+      openApp("xhsdiscover://notes/detail?noteId="+noteId, "https://www.xiaohongshu.com/explore/"+noteId);
+      return;
+    }
+    // xhslink 短链：本身是 universal link，手机直接进 App（仅过期才 404）
+    if(url && url.indexOf("xhslink.com")>=0){ window.open(url,"_blank"); return; }
+    // 无可用直链（分类/没链接）：拉起 App 搜索，失败回落正确搜索端点（已修正：不再是失效的 search_result）
+    openApp("xhsdiscover://search_result?keyword="+encodeURIComponent(q), "https://www.xiaohongshu.com/search?keyword="+encodeURIComponent(q));
+    return;
+  }
 });
 (function(){
   const d=window.HOTSPOT_DATA;
@@ -766,6 +782,7 @@ async function fetchWeather(lat,lon,city){
       <div class="wcell"><div class="wv" style="font-size:20px">${desc}</div><div class="wl">天气</div></div>
     </div>
     <div class="wadvice"><b>🌱 今日养护提示：</b>${adv.join("；")}。</div>`;
+  localStorage.setItem("wb_weather_date", todayKey());
 }
 async function loadWeather(){
   const sl=localStorage.getItem("wb_lat"), so=localStorage.getItem("wb_lon"), sc=localStorage.getItem("wb_city");
@@ -814,6 +831,18 @@ async function detectLoc(){
 const _sc=localStorage.getItem("wb_city");
 if(_sc&&!/定位/.test(_sc))$("cityInput").value=_sc;
 loadWeather();
+// 每日同一时刻重新抓取天气：页面常开时跨日自动刷新；切回前台也刷新；并提供手动刷新
+function refreshWeatherNow(){
+  const d=todayKey();
+  const sl=localStorage.getItem("wb_lat"),so=localStorage.getItem("wb_lon"),sc=localStorage.getItem("wb_city");
+  if(sl&&so&&!/定位/.test(sc||"")){ fetchWeather(parseFloat(sl),parseFloat(so),sc).then(()=>localStorage.setItem("wb_weather_date",d)).catch(()=>{}); }
+  else detectLoc();
+}
+function refreshWeatherIfNewDay(){
+  if(localStorage.getItem("wb_weather_date")!==todayKey()) refreshWeatherNow();
+}
+setInterval(refreshWeatherIfNewDay, 20*60*1000);
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden) refreshWeatherIfNewDay(); });
 </script>
 </body>
 </html>
